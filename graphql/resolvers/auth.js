@@ -1,0 +1,46 @@
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
+
+const User = require('../../models/user');
+
+module.exports = {
+    createUser: async (args) => {
+        let user = await User.findOne({email: args.userInput.email});
+        if(user){
+            throw new Error('User exists already');
+        } else {
+            try{
+               const hashedPassword =  await bcrypt.hash(args.userInput.password, 12);
+               const user = new User({
+                    email: args.userInput.email,
+                    password: hashedPassword
+                });
+                const result = await user.save();
+                return {...result._doc, password: null};
+            } catch (e) {
+                console.log(e);
+            }
+        }
+    },
+    login: async (args) => {
+        const user = await User.findOne({email: args.email})
+        if(!user){
+            throw new Error('User does not exist');
+        }
+        const isEqual = await bcrypt.compare(args.password, user.password);
+        if(!isEqual){
+            throw new Error('Password is not correct');
+        }
+        const token = jwt.sign({
+            userId: user.id,
+            email: user.email
+        }, 'g93hgpoi3giehf8ey9*HUIFOfj39fu3w',{
+            expiresIn: '1h'
+        });
+        return {
+            userId: user.id,
+            token: token,
+            tokenExpire: 1
+        };
+    }
+}
